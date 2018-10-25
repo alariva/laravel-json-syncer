@@ -3,6 +3,7 @@
 namespace MathieuTu\JsonSyncer\Helpers;
 
 use BadMethodCallException;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Support\Str;
@@ -34,6 +35,8 @@ class JsonImporter
             $object = $this->importAttributes($attributes);
 
             $this->importRelations($object, $attributes);
+
+            $this->touchTimestamps($object, $attributes);
         }
     }
 
@@ -64,6 +67,26 @@ class JsonImporter
         $attributes = array_only($attributes, $this->importable->getJsonImportableAttributes());
 
         return $this->importable instanceof Model ? $object = $this->importable->create($attributes) : $this->importable;
+    }
+
+    protected function touchTimestamps($object, $attributes)
+    {
+        $class = get_class($object);
+
+        $attributes = array_only($attributes, [$class::CREATED_AT, $class::UPDATED_AT]);
+
+        if (count($attributes) && $this->importable instanceof Model) {
+            $object->created_at = Carbon::parse(
+                                    $attributes[$class::CREATED_AT]['date'],
+                                    $attributes[$class::CREATED_AT]['timezone']
+                                );
+            $object->updated_at = Carbon::parse(
+                                    $attributes[$class::UPDATED_AT]['date'],
+                                    $attributes[$class::UPDATED_AT]['timezone']
+                                );
+
+            $object->save();
+        }
     }
 
     protected function importRelations($object, $attributes)
